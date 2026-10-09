@@ -1,0 +1,65 @@
+/* USER CODE BEGIN 0 */
+int hour = 15, minute = 8, second = 50;
+int led_buffer[4] = {1, 5, 0, 8};
+int index_led = 0;
+const int MAX_LED = 4;
+
+int TIMER_CYCLE = 10;
+int timer0_counter = 0, timer0_flag = 0; // Đồng hồ 1s
+int timer1_counter = 0, timer1_flag = 0; // LED DOT 1s
+int timer2_counter = 0, timer2_flag = 0; // Quét LED 7 đoạn (250ms)
+
+void setTimer0(int duration) { timer0_counter = duration / TIMER_CYCLE; timer0_flag = 0; }
+void setTimer1(int duration) { timer1_counter = duration / TIMER_CYCLE; timer1_flag = 0; }
+void setTimer2(int duration) { timer2_counter = duration / TIMER_CYCLE; timer2_flag = 0; }
+
+void timer_run() {
+    if (timer0_counter > 0) { timer0_counter--; if (timer0_counter == 0) timer0_flag = 1; }
+    if (timer1_counter > 0) { timer1_counter--; if (timer1_counter == 0) timer1_flag = 1; }
+    if (timer2_counter > 0) { timer2_counter--; if (timer2_counter == 0) timer2_flag = 1; }
+}
+//... (Giữ nguyên updateClockBuffer, display7SEG, turnOffAll7SEG, update7SEG như Bài 6)
+/* USER CODE END 0 */
+
+int main(void) {
+    //... (Init phần cứng như bình thường)
+    /* USER CODE BEGIN 2 */
+    updateClockBuffer();
+    HAL_TIM_Base_Start_IT(&htim2);
+
+    setTimer0(1000);
+    setTimer1(1000);
+    setTimer2(250);  // 250ms cho mỗi LED (tổng 4 LED = 1s = 1Hz)
+    /* USER CODE END 2 */
+
+    while (1) {
+        if (timer0_flag == 1) {
+            setTimer0(1000);
+            second++;
+            if (second >= 60) { second = 0; minute++; }
+            if (minute >= 60) { minute = 0; hour++; }
+            if (hour >= 24) hour = 0;
+            updateClockBuffer();
+        }
+
+        if (timer1_flag == 1) {
+            setTimer1(1000);
+            HAL_GPIO_TogglePin(DOT_GPIO_Port, DOT_Pin);
+        }
+
+        // Bài 8: Việc quét LED 7 đoạn được dời hoàn toàn xuống main
+        if (timer2_flag == 1) {
+            setTimer2(250);
+            update7SEG(index_led++);
+            if (index_led >= MAX_LED) index_led = 0;
+        }
+    }
+}
+
+/* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+    if (htim->Instance == TIM2) {
+        timer_run(); // Ngắt Timer được giải phóng, chỉ làm đúng nhiệm vụ đếm!
+    }
+}
+/* USER CODE END 4 */
